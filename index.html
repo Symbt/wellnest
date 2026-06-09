@@ -2287,6 +2287,16 @@
             updateSyncIndicator();
         });
 
+        // Log connection status on load
+        window.addEventListener('load', () => {
+            console.log('=== WellNest Supabase Status ===');
+            console.log('✅ Supabase initialized:', supabase ? 'YES' : 'NO');
+            console.log('🟢 Online status:', isOnline ? 'ONLINE' : 'OFFLINE');
+            console.log('📊 Supabase URL:', SUPABASE_URL);
+            console.log('🔑 Anon Key loaded:', SUPABASE_ANON_KEY.substring(0, 20) + '...');
+            console.log('==================================');
+        });
+
         function updateSyncIndicator() {
             const indicator = document.getElementById('syncIndicator');
             if (indicator) {
@@ -2662,14 +2672,6 @@
             }
             
             enterApp(username);
-        }
-            
-            wellnessData.currentUser = name;
-            saveData();
-            
-            console.log('Sign in successful, entering app');
-            enterApp(name);
-            return false;
         }
 
         function restoreFromTransfer(e) {
