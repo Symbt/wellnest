@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WellNest - Multi-Profile Wellness Tracker</title>
+    
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --sage: #7ca89e;
+            --sage-light: #d0e0da;
+            --sage-dark: #5a7f75;
+            --cream: #f5f1e8;
+            --charcoal: #2c3e50;
+            --white: #ffffff;
+            --gray: #999;
+            --rose: #d97b8e;
+            --rose-light: #ffe0e0;
+            --lavender-light: #e8e0f5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, var(--sage-light) 0%, var(--cream) 100%);
+            color: var(--charcoal);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+            background: var(--white);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--charcoal);
+        }
+
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--sage-light);
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--sage);
+            color: var(--white);
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background: var(--sage-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(124, 168, 158, 0.3);
+        }
+
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 10px 15px;
+            background: var(--white);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .sync-status.online {
+            display: block;
+            color: #28a745;
+        }
+
+        .sync-status.offline {
+            display: block;
+            color: #dc3545;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: var(--sage-dark);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--gray);
+        }
+
+        .error {
+            color: var(--rose);
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--rose-light);
+            border-radius: 6px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .app-container {
+            display: none;
+        }
+
+        .app-container.show {
+            display: block;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--white);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: var(--sage-dark);
+        }
+
+        nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            background: var(--sage-light);
+            color: var(--charcoal);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn.active {
+            background: var(--sage);
+            color: var(--white);
+        }
+
+        .nav-btn:hover {
+            background: var(--sage);
+            color: var(--white);
+        }
+
+        .logout-btn {
+            background: var(--rose);
+            color: var(--white);
+            margin-left: auto;
+        }
+
+        .logout-btn:hover {
+            background: #c1677a;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .table thead {
+            background: var(--sage-light);
+        }
+
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--sage-light);
+        }
+
+        .table tr:hover {
+            background: var(--cream);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--gray);
+        }
+
+        .success-message {
+            color: #28a745;
+            padding: 10px;
+            background: #f0f8f4;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sync Status -->
+    <div class="sync-status" id="syncStatus">
+        <span id="syncText">Syncing...</span>
+    </div>
+
+    <!-- Auth Page -->
+    <div id="authPage" class="page active">
+        <div class="auth-container">
+            <div class="header">
+                <h1>🌿 WellNest</h1>
+                <p>Multi-Profile Wellness Tracker</p>
+            </div>
+
+            <div id="authError" class="error"></div>
+            <div id="authSuccess" class="success-message"></div>
+
+            <div class="form-group">
+                <label for="authUsername">Username</label>
+                <input type="text" id="authUsername" placeholder="Enter username">
+            </div>
+
+            <div class="form-group">
+                <label for="authPin">PIN (4 digits)</label>
+                <input type="password" id="authPin" placeholder="1234" maxlength="4">
+            </div>
+
+            <div class="form-group">
+                <button class="btn btn-primary" onclick="signInOrUp()">Sign In / Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Page -->
+    <div id="appPage" class="app-container">
+        <nav>
+            <button class="nav-btn active" onclick="showPage('medication')">💊 Medications</button>
+            <button class="nav-btn" onclick="showPage('weight')">⚖️ Weight</button>
+            <button class="nav-btn" onclick="showPage('settings')">⚙️ Settings</button>
+            <button class="nav-btn logout-btn" onclick="logout()">Logout</button>
+        </nav>
+
+        <!-- Medication Page -->
+        <div id="medicationPage" class="page active">
+            <div class="card">
+                <h2 class="card-title">💊 Medications</h2>
+                <div id="medicationContent"></div>
+            </div>
+        </div>
+
+        <!-- Weight Page -->
+        <div id="weightPage" class="page">
+            <div class="card">
+                <h2 class="card-title">⚖️ Weight Tracker</h2>
+                <p style="color: var(--gray);">Coming soon...</p>
+            </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div id="settingsPage" class="page">
+            <div class="card">
+                <h2 class="card-title">⚙️ Settings</h2>
+                <p><strong>Current User:</strong> <span id="currentUser"></span></p>
+                <p><strong>Sync Status:</strong> <span id="syncIndicator"></span></p>
+                <p><strong>Data in Cloud:</strong> <span id="cloudDataStatus"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // SUPABASE CONFIGURATION
+        // ============================================
+        const SUPABASE_URL = 'https://oyacsmvozujkcmmblkowk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95YWNzbXZvenVqa2NtbWJrb3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjQwODMsImV4cCI6MjA5NjYwMDA4M30.RPy-h2hMRMB9MKMPYRVtcFSgxxn5CSXQnx6nXFASjPc';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        let currentUser = null;
+        let currentUserData = null;
+        let isOnline = navigator.onLine;
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.addEventListener('online', () => {
+            isOnline = true;
+            updateSyncStatus();
+            syncToCloud();
+        });
+
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            updateSyncStatus();
+        });
+
+        // ============================================
+        // AUTHENTICATION
+        // ============================================
+        async function signInOrUp() {
+            const username = document.getElementById('authUsername').value.trim();
+            const pin = document.getElementById('authPin').value.trim();
+
+            if (!username || !pin || pin.length !== 4) {
+                showError('Please enter username and 4-digit PIN');
+                return;
+            }
+
+            try {
+                // Check if user exists
+                const { data: users, error: checkError } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('username', username);
+
+                if (checkError) throw checkError;
+
+                if (users && users.length > 0) {
+                    // User exists - sign in
+                    const user = users[0];
+                    currentUser = { id: user.id, username };
+                    await loadUserData();
+                    showPage('medication');
+                } else {
+                    // Create new user
+                    const { data: newUser, error: createError } = await supabase
+                        .from('users')
+                        .insert([{
+                            username,
+                            pin,
+                            access_code: generateAccessCode()
+                        }])
+                        .select();
+
+                    if (createError) throw createError;
+
+                    currentUser = { id: newUser[0].id, username };
+                    
+                    // Create empty user data
+                    await supabase
+                        .from('user_data')
+                        .insert([{
+                            user_id: currentUser.id,
+                            medication: [],
+                            medication_profiles: [],
+                            active_medication_profile: null,
+                            custom_types: {},
+                            weight_log: [],
+                            food_log: [],
+                            activity_log: [],
+                            cycle_log: {},
+                            goals: [],
+                            journal: [],
+                            reminders: [],
+                            audit_log: []
+                        }]);
+
+                    showSuccess('Account created! Welcome to WellNest!');
+                    await loadUserData();
+                    showPage('medication');
+                }
+
+                document.getElementById('authPage').classList.remove('active');
+                document.getElementById('appPage').classList.add('show');
+                updateSettingsPage();
+
+            } catch (error) {
+                console.error('Auth error:', error);
+                showError(error.message);
+            }
+        }
+
+        async function loadUserData() {
+            try {
+                const { data, error } = await supabase
+                    .from('user_data')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (error) throw error;
+
+                currentUserData = data;
+                loadMedicationList();
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                showError('Failed to load data');
+            }
+        }
+
+        async function syncToCloud() {
+            if (!isOnline || !currentUser || !currentUserData) return;
+
+            try {
+                const { error } = await supabase
+                    .from('user_data')
+                    .update({
+                        medication: currentUserData.medication || [],
+                        medication_profiles: currentUserData.medication_profiles || [],
+                        active_medication_profile: currentUserData.active_medication_profile,
+                        custom_types: currentUserData.custom_types || {},
+                        weight_log: currentUserData.weight_log || [],
+                        food_log: currentUserData.food_log || [],
+                        activity_log: currentUserData.activity_log || [],
+                        cycle_log: currentUserData.cycle_log || {},
+                        goals: currentUserData.goals || [],
+                        journal: currentUserData.journal || [],
+                        reminders: currentUserData.reminders || [],
+                        audit_log: currentUserData.audit_log || [],
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+                console.log('✅ Synced to cloud');
+
+            } catch (error) {
+                console.error('Sync error:', error);
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            currentUserData = null;
+            document.getElementById('appPage').classList.remove('show');
+            document.getElementById('authPage').classList.add('active');
+            document.getElementById('authUsername').value = '';
+            document.getElementById('authPin').value = '';
+        }
+
+        // ============================================
+        // UI FUNCTIONS
+        // ============================================
+        function showPage(pageName) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.querySelectorAll('#appPage .page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageName + 'Page').classList.add('active');
+        }
+
+        function loadMedicationList() {
+            const content = document.getElementById('medicationContent');
+            
+            if (!currentUserData.medication || currentUserData.medication.length === 0) {
+                content.innerHTML = '<div class="empty-state">No medications added yet. Add your first medication!</div>';
+                return;
+            }
+
+            let html = '<table class="table"><thead><tr>';
+            html += '<th>Medication</th><th>Dosage</th><th>Frequency</th><th>Category</th>';
+            html += '</tr></thead><tbody>';
+
+            currentUserData.medication.forEach(med => {
+                html += `<tr>
+                    <td>${med.name}</td>
+                    <td>${med.dosage}</td>
+                    <td>${med.frequency}</td>
+                    <td>${med.category || 'Uncategorized'}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        }
+
+        function updateSettingsPage() {
+            document.getElementById('currentUser').textContent = currentUser?.username || 'Not logged in';
+            document.getElementById('syncIndicator').textContent = isOnline ? '🟢 Online' : '🔴 Offline';
+            document.getElementById('cloudDataStatus').textContent = currentUserData?.medication?.length || 0 + ' medications';
+        }
+
+        function updateSyncStatus() {
+            const status = document.getElementById('syncStatus');
+            if (isOnline) {
+                status.classList.remove('offline');
+                status.classList.add('online');
+                document.getElementById('syncText').textContent = '🟢 Online - Synced';
+                syncToCloud();
+            } else {
+                status.classList.remove('online');
+                status.classList.add('offline');
+                document.getElementById('syncText').textContent = '🔴 Offline - Local Only';
+            }
+        }
+
+        function showError(message) {
+            const error = document.getElementById('authError');
+            error.textContent = '❌ ' + message;
+            error.classList.add('show');
+            setTimeout(() => error.classList.remove('show'), 5000);
+        }
+
+        function showSuccess(message) {
+            const success = document.getElementById('authSuccess');
+            success.textContent = '✅ ' + message;
+            success.classList.add('show');
+            setTimeout(() => success.classList.remove('show'), 5000);
+        }
+
+        function generateAccessCode() {
+            return Math.random().toString(36).substring(2, 10).toUpperCase();
+        }
+
+        // Initial sync status update
+        updateSyncStatus();
+
+        // Sync every 30 seconds when online
+        setInterval(() => {
+            if (isOnline) syncToCloud();
+        }, 30000);
+    </script>
+</body>
+</html>
