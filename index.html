@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WellNest v4.0 - Your Wellness Journey</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <!-- Supabase Client Library -->
+    <!-- Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!--
     ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -1017,7 +1017,7 @@
             
             <div class="sidebar-footer">
                 <p style="text-align: center; color: var(--gray); font-size: 0.75rem;">WellNest v4.0</p>
-                <div id="syncIndicator" style="text-align: center; margin-top: 0.5rem; font-size: 0.8rem; padding: 0.5rem; border-radius: 4px; background: #e8f5e9; color: #2e7d32;">🟢 Online</div>
+                <div id="syncIndicator" style="text-align: center; margin-top: 0.5rem; font-size: 0.75rem; padding: 0.4rem; border-radius: 4px; background: #e8f5e9; color: #2e7d32;">🟢 Online</div>
             </div>
         </aside>
 
@@ -2259,80 +2259,65 @@
     </div>
 
     <script>
-        // ============================================
-        // SUPABASE CLOUD SYNC
-        // ============================================
-        const SUPABASE_URL = 'https://oyacsmvozujkcmmblkowk.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95YWNzbXZvenVqa2NtbWJrb3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjQwODMsImV4cCI6MjA5NjYwMDA4M30.RPy-h2hMRMB9MKMPYRVtcFSgxxn5CSXQnx6nXFASjPc';
-        
-        let supabase = null;
-        let isOnline = navigator.onLine;
+        // Supabase Integration (Minimal - Non-blocking)
+        let supabaseClient = null;
+        let isCloudOnline = navigator.onLine;
         
         try {
             if (window.supabase) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const SUPABASE_URL = 'https://oyacsmvozujkcmmblkowk.supabase.co';
+                const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95YWNzbXZvenVqa2NtbWJrb3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjQwODMsImV4cCI6MjA5NjYwMDA4M30.RPy-h2hMRMB9MKMPYRVtcFSgxxn5CSXQnx6nXFASjPc';
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                console.log('✅ Supabase ready');
             }
-        } catch (error) {
-            console.warn('Supabase error:', error);
+        } catch (e) {
+            console.log('Supabase: optional feature');
         }
         
-        // Connection monitoring
         window.addEventListener('online', () => {
-            isOnline = true;
-            updateSyncIndicator();
+            isCloudOnline = true;
+            const el = document.getElementById('syncIndicator');
+            if (el) el.textContent = '🟢 Online';
         });
         
         window.addEventListener('offline', () => {
-            isOnline = false;
-            updateSyncIndicator();
+            isCloudOnline = false;
+            const el = document.getElementById('syncIndicator');
+            if (el) el.textContent = '🔴 Offline';
         });
         
-        function updateSyncIndicator() {
-            const el = document.getElementById('syncIndicator');
-            if (el) {
-                el.textContent = isOnline ? '🟢 Online' : '🔴 Offline';
-                el.style.color = isOnline ? '#28a745' : '#dc3545';
-            }
-        }
-        
-        // Auto-sync every 30 seconds
-        setInterval(() => {
-            if (isOnline && typeof syncToSupabase === 'function') {
-                syncToSupabase();
-            }
-        }, 30000);
-        
-        async function syncToSupabase() {
-            if (!supabase || !wellnessData?.currentUser) return;
+        async function syncToCloud() {
+            if (!supabaseClient || !wellnessData?.currentUser || !isCloudOnline) return;
             try {
                 const user = wellnessData.users?.find(u => u.name === wellnessData.currentUser);
                 if (!user) return;
                 
-                const { data: exists } = await supabase.from('users').select('id').eq('username', user.name);
-                
-                if (exists?.length > 0) {
-                    await supabase.from('user_data').update({ 
+                const { data } = await supabaseClient.from('users').select('id').eq('username', user.name).limit(1);
+                if (data?.length > 0) {
+                    await supabaseClient.from('user_data').update({
                         data: JSON.stringify(user.data),
                         updated_at: new Date().toISOString()
-                    }).eq('user_id', exists[0].id);
+                    }).eq('user_id', data[0].id);
                 } else {
-                    const { data: newUser } = await supabase.from('users').insert([{
+                    const { data: newUser } = await supabaseClient.from('users').insert({
                         username: user.name,
                         pin: user.pin,
                         access_code: user.accessCode || ''
-                    }]).select();
-                    
+                    }).select();
                     if (newUser?.length > 0) {
-                        await supabase.from('user_data').insert([{
+                        await supabaseClient.from('user_data').insert({
                             user_id: newUser[0].id,
                             data: JSON.stringify(user.data)
-                        }]);
+                        });
                     }
                 }
-            } catch (error) {
-                console.log('Sync pending...');
+                console.log('✅ Synced');
+            } catch (e) {
+                console.log('Sync pending');
             }
         }
+        
+        setInterval(() => { if (isCloudOnline) syncToCloud(); }, 30000);
         
         // Access codes
         const VALID_ACCESS_CODES = [
@@ -2452,10 +2437,7 @@
         // Save data
         function saveData() {
             localStorage.setItem('wellnessData', JSON.stringify(wellnessData));
-            // Sync to cloud if online and user logged in
-            if (isOnline && wellnessData?.currentUser && supabase) {
-                syncToSupabase();
-            }
+            if (isCloudOnline && wellnessData?.currentUser) syncToCloud();
         }
 
         // Auth functions
